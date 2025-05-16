@@ -2,6 +2,7 @@ from enum import Enum
 import requests
 from bs4 import BeautifulSoup
 import re
+import time
 from datetime import datetime, date
 
 class Month(Enum):
@@ -27,9 +28,14 @@ class QuarterResult:
     def __init__(self, ticker):
         url = f"https://www.screener.in/company/{ticker}/consolidated/"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         }
-        response = requests.get(url, headers=headers)
+        try:
+            response = requests.get(url, headers=headers)
+        except requests.exceptions.HTTPError as err:
+            print(f'An HTTP error occurred: {err}')
+        # response = requests.get(url, headers=headers)
+        time.sleep(60)
         response.raise_for_status()
         self.soup = BeautifulSoup(response.content, 'html.parser')
         quarters_section = self.soup.find(id="quarters")

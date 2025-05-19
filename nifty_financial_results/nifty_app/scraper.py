@@ -44,112 +44,19 @@ class QuarterResult:
         self.table_header = str(quarters_section.thead)
         self.table_body = quarters_section.tbody.find_all('tr')
 
-        # Quarter Result Header Pattern
-        self.quarter_header_pattern = r'''<thead>
-<tr>
-<th class=\"text\"></th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-</tr>
-</thead>'''
+        # Quarterly Result Header Pattern
+        self.quarter_header_pattern = r'''(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{4})
+'''
 
-        # Button Pattern Followed by Sales, Expenses and PAT
-        self.button_pattern = r'''<tr class=\"(.*)\">
-<td class=\"text\">
-<button class=\"button-plain\" onclick=\"(.*)\">
-                  (.*) <span class=\"blue-icon\">(.*)</span>
-</button>
-</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-</tr>'''
+        # Sales, Expenses, PBT, PAT (comma ,) Pattern
+        self.comma_pattern = r'''>\s*([\d,]+)\s*</td>'''
 
-        # Non Button Pattern Followed by PBT and EPS
-        self.non_button_pattern = r'''<tr class=\"(.*)\">
-<td class=\"text\">
-              
-                (.*)
-              
-            </td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-</tr>'''
+        # EPS (dot . ) Pattern
+        self.dot_pattern = r'''>\s*([\d.]+)\s*</td>'''
 
     def get_header(self):
-        match_table_header = re.match(self.quarter_header_pattern, self.table_header)
-        quarter_header_month = match_table_header.group(2, 5, 8, 11, 14, 17, 20, 23, 26, 28, 31, 34, 37)
+        match_table_header = re.findall(self.quarter_header_pattern, self.table_header)
+        quarter_header_month = [m[0] for m in match_table_header]
         quarter_header_month_number = []
         for month_str in quarter_header_month:
             try:
@@ -157,7 +64,7 @@ class QuarterResult:
                 quarter_header_month_number.append(month_number)
             except KeyError:
                 quarter_header_month_number.append(None)  # Or handle invalid months differently
-        quarter_header_year = match_table_header.group(3, 6, 9, 12, 15, 18, 21, 24, 27, 29, 32, 35, 38)
+        quarter_header_year = [m[1] for m in match_table_header]
 
         return [list(quarter_header_month_number), list(quarter_header_year)]
     
@@ -176,7 +83,7 @@ class QuarterResult:
 
         Raises:
             TypeError: If `quarter table_body` is not a list or its first element is not a string.
-            AttributeError: If `quarter button_pattern` is not a valid regex pattern or is None.
+            AttributeError: If `quarter comma_pattern` is not a valid regex pattern or is None.
             IndexError: If `quarter table_body` is empty or the regex match fails to extract the required groups.
             ValueError: If the extracted sales data cannot be converted to integers.
         """
@@ -190,15 +97,15 @@ class QuarterResult:
             raise TypeError("The first element of quarter table_body must be a string.")
 
         try:
-            match_sales = re.match(self.button_pattern, sales)
+            match_sales = re.findall(self.comma_pattern, sales)
         except AttributeError:
-            raise AttributeError("quarter button_pattern must be a valid regex pattern and cannot be None.")
+            raise AttributeError("quarter comma_pattern must be a valid regex pattern and cannot be None.")
 
         if not match_sales:
-            raise ValueError(f"Regex pattern {self.button_pattern} did not match the sales string: {sales}")
+            raise ValueError(f"Regex pattern {self.comma_pattern} did not match the sales string: {sales}")
 
         try:
-            sales_data = [int(i.replace(',', '')) for i in match_sales.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30)]
+            sales_data = [int(i.replace(',', '')) for i in match_sales]
         except ValueError as e:
             raise ValueError(f"Could not convert extracted sales data to integers: {e}")
         except IndexError:
@@ -215,7 +122,7 @@ class QuarterResult:
 
         Raises:
             TypeError: If `quarters.table_body` is not a list or its second element is not a string.
-            AttributeError: If `quarters.button_pattern` is not a valid regex pattern or is None.
+            AttributeError: If `quarters.comma_pattern` is not a valid regex pattern or is None.
             IndexError: If `quarters.table_body` has fewer than two elements or the regex match fails.
             ValueError: If the extracted expenses data cannot be converted to integers.
         """
@@ -229,15 +136,15 @@ class QuarterResult:
             raise TypeError("The elements of quarters.table_body must be strings.")
 
         try:
-            match_expenses = re.match(self.button_pattern, expenses)
+            match_expenses = re.findall(self.comma_pattern, expenses)
         except AttributeError:
-            raise AttributeError("quarters.button_pattern must be a valid regex pattern and cannot be None.")
+            raise AttributeError("quarters.comma_pattern must be a valid regex pattern and cannot be None.")
 
         if not match_expenses:
-            raise ValueError(f"Regex pattern {self.button_pattern} did not match the expenses string: {expenses}")
+            raise ValueError(f"Regex pattern {self.comma_pattern} did not match the expenses string: {expenses}")
 
         try:
-            expenses_data = [int(i.replace(',', '')) for i in match_expenses.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30)]
+            expenses_data = [int(i.replace(',', '')) for i in match_expenses]
         except ValueError as e:
             raise ValueError(f"Could not convert extracted expenses data to integers: {e}")
         except IndexError:
@@ -254,7 +161,7 @@ class QuarterResult:
 
         Raises:
             TypeError: If `quarters.table_body` is not a list or its eighth element is not a string.
-            AttributeError: If `quarters.non_button_pattern` is not a valid regex pattern or is None.
+            AttributeError: If `quarters.comma_pattern` is not a valid regex pattern or is None.
             IndexError: If `quarters.table_body` has fewer than eight elements or the regex match fails.
             ValueError: If the extracted PBT data cannot be converted to integers.
         """
@@ -268,15 +175,15 @@ class QuarterResult:
             raise TypeError("The elements of quarters.table_body must be strings.")
 
         try:
-            match_pbt = re.match(self.non_button_pattern, profit_before_tax)
+            match_pbt = re.findall(self.comma_pattern, profit_before_tax)
         except AttributeError:
-            raise AttributeError("quarters.non_button_pattern must be a valid regex pattern and cannot be None.")
+            raise AttributeError("quarters.comma_pattern must be a valid regex pattern and cannot be None.")
 
         if not match_pbt:
-            raise ValueError(f"Regex pattern {self.non_button_pattern} did not match the PBT string: {profit_before_tax}")
+            raise ValueError(f"Regex pattern {self.comma_pattern} did not match the PBT string: {profit_before_tax}")
 
         try:
-            pbt_data = [int(i.replace(',', '')) for i in match_pbt.group(4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 19)]
+            pbt_data = [int(i.replace(',', '')) for i in match_pbt]
         except ValueError as e:
             raise ValueError(f"Could not convert extracted PBT data to integers: {e}")
         except IndexError:
@@ -293,7 +200,7 @@ class QuarterResult:
 
         Raises:
             TypeError: If `quarters.table_body` is not a list or its tenth element is not a string.
-            AttributeError: If `quarters.button_pattern` is not a valid regex pattern or is None.
+            AttributeError: If `quarters.comma_pattern` is not a valid regex pattern or is None.
             IndexError: If `quarters.table_body` has fewer than ten elements or the regex match fails.
             ValueError: If the extracted PAT data cannot be converted to integers.
         """
@@ -307,15 +214,15 @@ class QuarterResult:
             raise TypeError("The elements of quarters.table_body must be strings.")
 
         try:
-            match_pat = re.match(self.button_pattern, profit_after_tax)
+            match_pat = re.findall(self.comma_pattern, profit_after_tax)
         except AttributeError:
-            raise AttributeError("quarters.button_pattern must be a valid regex pattern and cannot be None.")
+            raise AttributeError("quarters.comma_pattern must be a valid regex pattern and cannot be None.")
 
         if not match_pat:
-            raise ValueError(f"Regex pattern {self.button_pattern} did not match the PAT string: {profit_after_tax}")
+            raise ValueError(f"Regex pattern {self.comma_pattern} did not match the PAT string: {profit_after_tax}")
 
         try:
-            pat_data = [int(i.replace(',', '').replace('%', '')) for i in match_pat.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30)]
+            pat_data = [int(i.replace(',', '').replace('%', '')) for i in match_pat]
         except ValueError as e:
             raise ValueError(f"Could not convert extracted PAT data to integers: {e}")
         except IndexError:
@@ -333,7 +240,7 @@ class QuarterResult:
 
         Raises:
             TypeError: If `quarters.table_body` is not a list or its eleventh element is not a string.
-            AttributeError: If `quarters.non_button_pattern` is not a valid regex pattern or is None.
+            AttributeError: If `quarters.dot_pattern` is not a valid regex pattern or is None.
             IndexError: If `quarters.table_body` has fewer than eleven elements or the regex match fails.
             ValueError: If the extracted EPS data cannot be converted to floats.
         """
@@ -347,15 +254,15 @@ class QuarterResult:
             raise TypeError("The elements of quarters.table_body must be strings.")
 
         try:
-            match_eps = re.match(self.non_button_pattern, eps)
+            match_eps = re.findall(self.dot_pattern, eps)
         except AttributeError:
-            raise AttributeError("quarters.non_button_pattern must be a valid regex pattern and cannot be None.")
+            raise AttributeError("quarters.dot_pattern must be a valid regex pattern and cannot be None.")
 
         if not match_eps:
-            raise ValueError(f"Regex pattern {self.non_button_pattern} did not match the EPS string: {eps}")
+            raise ValueError(f"Regex pattern {self.dot_pattern} did not match the EPS string: {eps}")
 
         try:
-            eps_data = [float(i.replace(',', '')) for i in match_eps.group(4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 19)]
+            eps_data = [float(i.replace(',', '')) for i in match_eps]
         except ValueError as e:
             raise ValueError(f"Could not convert extracted EPS data to floats: {e}")
         except IndexError:
@@ -399,107 +306,14 @@ class AnnualResult:
         self.table_body = self.soup.find(id = "profit-loss").tbody.find_all('tr')
 
         # Annual Result Header Pattern
-        self.annual_header_pattern = r'''<thead>
-<tr>
-<th class=\"text\"></th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?) (.*?)
-            
-          </th>
-<th class=\"(.*)\">
-            (.*?)
-            
-          </th>
-</tr>
-</thead>'''
+        self.annual_header_pattern = r'''(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{4})
+'''
 
-        # Button Pattern Followed by Sales, Expenses and PAT
-        self.button_pattern = r'''<tr class=\"(.*)\">
-<td class=\"text\">
-<button class=\"button-plain\" onclick=\"(.*)\">
-                  (.*) <span class=\"blue-icon\">(.*)</span>
-</button>
-</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-</tr>'''
+        # Sales, Expenses, PBT, PAT (comma ,) Pattern
+        self.comma_pattern = r'''>\s*([\d,]+)\s*</td>'''
 
-        # Non Button Pattern Followed by PBT and EPS
-        self.non_button_pattern = r'''<tr class=\"(.*)\">
-<td class=\"text\">
-              
-                (.*)
-              
-            </td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"\">(.*?)</td>
-<td class=\"(.*)\">(.*?)</td>
-</tr>'''
+        # EPS (dot . ) Pattern
+        self.dot_pattern = r'''>\s*([\d.]+)\s*</td>'''
 
     def get_header(self):
         """
@@ -524,11 +338,13 @@ class AnnualResult:
         if not isinstance(self.annual_header_pattern, str):
             raise TypeError("annual_header_pattern must be a string.")
 
-        match_table_header = re.match(self.annual_header_pattern, self.table_header)
+        # print(self.table_header)       
+
+        match_table_header = re.findall(self.annual_header_pattern, self.table_header)
         if not match_table_header:
             raise ValueError("annual table_header does not match the expected pattern")
 
-        annual_header_month = match_table_header.group(2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35)
+        annual_header_month = [m[0] for m in match_table_header]
         annual_header_month_number = []
         for month_str in annual_header_month:
             try:
@@ -536,7 +352,7 @@ class AnnualResult:
                 annual_header_month_number.append(month_number)
             except KeyError:
                 annual_header_month_number.append(None)  # Or handle invalid months differently
-        annual_header_year = match_table_header.group(3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36)
+        annual_header_year = [m[1] for m in match_table_header]
 
         return [list(annual_header_month_number), list(annual_header_year)]
 
@@ -547,13 +363,13 @@ class AnnualResult:
         Extracts and cleans sales data from the table body.
 
         Args:
-            self: The object containing the table_body and button_pattern attributes.
+            self: The object containing the table_body and comma_pattern attributes.
 
         Returns:
             A list of integers representing the sales data.
 
         Raises:
-            TypeError: If table_body is not a list or button_pattern is not a string.
+            TypeError: If table_body is not a list or comma_pattern is not a string.
             ValueError: If the sales data does not match the expected pattern.
             AttributeError: If the object does not have the required attributes.
         """
@@ -561,20 +377,20 @@ class AnnualResult:
             raise AttributeError("Object must have 'table_body' attribute")
         if not isinstance(self.table_body, list):
             raise TypeError("annual table_body must be a list")
-        if not hasattr(self, 'button_pattern'):
-            raise AttributeError("Object must have 'button_pattern' attribute")
-        if not isinstance(self.button_pattern, str):
-            raise TypeError("annual button_pattern must be a string.")
+        if not hasattr(self, 'comma_pattern'):
+            raise AttributeError("Object must have 'comma_pattern' attribute")
+        if not isinstance(self.comma_pattern, str):
+            raise TypeError("annual comma_pattern must be a string.")
 
         if not self.table_body:  # Check if table_body is empty
             raise ValueError("annual table_body is empty")
 
         sales = str(self.table_body[0])
-        match_sales = re.match(self.button_pattern, sales)
+        match_sales = re.findall(self.comma_pattern, sales)
         if not match_sales:
             raise ValueError("Annual Sales data does not match the expected pattern")
 
-        sales_data = [int(i.replace(',', '')) for i in match_sales.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28)]
+        sales_data = [int(i.replace(',', '')) for i in match_sales]
         return sales_data
 
 
@@ -583,13 +399,13 @@ class AnnualResult:
         Extracts and cleans expenses data from the table body.
 
         Args:
-            self: The object containing the table_body and button_pattern attributes.
+            self: The object containing the table_body and comma_pattern attributes.
 
         Returns:
             A list of integers representing the expenses data.
 
         Raises:
-            TypeError: If table_body is not a list or button_pattern is not a string.
+            TypeError: If table_body is not a list or comma_pattern is not a string.
             ValueError: If the expenses data does not match the expected pattern.
             AttributeError: If the object does not have the required attributes.
         """
@@ -597,20 +413,20 @@ class AnnualResult:
             raise AttributeError("Object must have 'table_body' attribute")
         if not isinstance(self.table_body, list):
             raise TypeError("table_body must be a list")
-        if not hasattr(self, 'button_pattern'):
-            raise AttributeError("Object must have 'button_pattern' attribute")
-        if not isinstance(self.button_pattern, str):
-            raise TypeError("button_pattern must be a string.")
+        if not hasattr(self, 'comma_pattern'):
+            raise AttributeError("Object must have 'comma_pattern' attribute")
+        if not isinstance(self.comma_pattern, str):
+            raise TypeError("comma_pattern must be a string.")
 
         if not self.table_body:  # Check if table_body is empty
             raise ValueError("table_body is empty")
 
         expenses = str(self.table_body[1])
-        match_expenses = re.match(self.button_pattern, expenses)
+        match_expenses = re.findall(self.comma_pattern, expenses)
         if not match_expenses:
             raise ValueError("Expenses data does not match the expected pattern")
 
-        expenses_data = [int(i.replace(',', '')) for i in match_expenses.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28)]
+        expenses_data = [int(i.replace(',', '')) for i in match_expenses]
         return expenses_data
 
 
@@ -620,13 +436,13 @@ class AnnualResult:
         Extracts and cleans profit before tax (PBT) data from the table body.
 
         Args:
-            self: The object containing the table_body and non_button_pattern attributes.
+            self: The object containing the table_body and comma_pattern attributes.
 
         Returns:
             A list of integers representing the PBT data.
 
         Raises:
-            TypeError: If table_body is not a list or non_button_pattern is not a string.
+            TypeError: If table_body is not a list or comma_pattern is not a string.
             ValueError: If the PBT data does not match the expected pattern.
             AttributeError: If the object does not have the required attributes.
         """
@@ -634,20 +450,22 @@ class AnnualResult:
             raise AttributeError("Object must have 'table_body' attribute")
         if not isinstance(self.table_body, list):
             raise TypeError("table_body must be a list")
-        if not hasattr(self, 'non_button_pattern'):
-            raise AttributeError("Object must have 'non_button_pattern' attribute")
-        if not isinstance(self.non_button_pattern, str):
-            raise TypeError("non_button_pattern must be a string.")
+        if not hasattr(self, 'comma_pattern'):
+            raise AttributeError("Object must have 'comma_pattern' attribute")
+        if not isinstance(self.comma_pattern, str):
+            raise TypeError("comma_pattern must be a string.")
 
         if not self.table_body:  # Check if table_body is empty
             raise ValueError("table_body is empty")
 
         profit_before_tax = str(self.table_body[7])
-        match_pbt = re.match(self.non_button_pattern, profit_before_tax)
+        print(profit_before_tax)
+
+        match_pbt = re.findall(self.comma_pattern, profit_before_tax)
         if not match_pbt:
             raise ValueError("PBT data does not match the expected pattern")
 
-        pbt_data = [int(i.replace(',', '')) for i in match_pbt.group(4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17)]
+        pbt_data = [int(i.replace(',', '')) for i in match_pbt]
         return pbt_data
 
 
@@ -656,13 +474,13 @@ class AnnualResult:
         Extracts and cleans profit after tax (PAT) data from the table body.
 
         Args:
-            self: The object containing the table_body and button_pattern attributes.
+            self: The object containing the table_body and comma_pattern attributes.
 
         Returns:
             A list of integers representing the PAT data.
 
         Raises:
-            TypeError: If table_body is not a list or button_pattern is not a string.
+            TypeError: If table_body is not a list or comma_pattern is not a string.
             ValueError: If the PAT data does not match the expected pattern.
             AttributeError: If the object does not have the required attributes.
         """
@@ -670,20 +488,20 @@ class AnnualResult:
             raise AttributeError("Object must have 'table_body' attribute")
         if not isinstance(self.table_body, list):
             raise TypeError("table_body must be a list")
-        if not hasattr(self, 'button_pattern'):
-            raise AttributeError("Object must have 'button_pattern' attribute")
-        if not isinstance(self.button_pattern, str):
-            raise TypeError("button_pattern must be a string.")
+        if not hasattr(self, 'comma_pattern'):
+            raise AttributeError("Object must have 'comma_pattern' attribute")
+        if not isinstance(self.comma_pattern, str):
+            raise TypeError("comma_pattern must be a string.")
 
         if not self.table_body:  # Check if table_body is empty
             raise ValueError("table_body is empty")
 
         profit_after_tax = str(self.table_body[9])
-        match_pat = re.match(self.button_pattern, profit_after_tax)
+        match_pat = re.findall(self.comma_pattern, profit_after_tax)
         if not match_pat:
             raise ValueError("PAT data does not match the expected pattern")
 
-        pat_data = [int(i.replace(',', '').replace('%', '')) for i in match_pat.group(6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28)]
+        pat_data = [int(i.replace(',', '').replace('%', '')) for i in match_pat]
         return pat_data
 
 
@@ -692,13 +510,13 @@ class AnnualResult:
         Extracts and cleans earnings per share (EPS) data from the table body.
 
         Args:
-            self: The object containing the table_body and non_button_pattern attributes.
+            self: The object containing the table_body and dot_pattern attributes.
 
         Returns:
             A list of floats representing the EPS data.
 
         Raises:
-            TypeError: If table_body is not a list or non_button_pattern is not a string.
+            TypeError: If table_body is not a list or dot_pattern is not a string.
             ValueError: If the EPS data does not match the expected pattern.
             AttributeError: If the object does not have the required attributes.
         """
@@ -706,20 +524,20 @@ class AnnualResult:
             raise AttributeError("Object must have 'table_body' attribute")
         if not isinstance(self.table_body, list):
             raise TypeError("table_body must be a list")
-        if not hasattr(self, 'non_button_pattern'):
-            raise AttributeError("Object must have 'non_button_pattern' attribute")
-        if not isinstance(self.non_button_pattern, str):
-            raise TypeError("non_button_pattern must be a string.")
+        if not hasattr(self, 'dot_pattern'):
+            raise AttributeError("Object must have 'dot_pattern' attribute")
+        if not isinstance(self.dot_pattern, str):
+            raise TypeError("dot_pattern must be a string.")
 
         if not self.table_body:  # Check if table_body is empty
             raise ValueError("table_body is empty")
 
         eps = str(self.table_body[10])
-        match_eps = re.match(self.non_button_pattern, eps)
+        match_eps = re.findall(self.dot_pattern, eps)
         if not match_eps:
             raise ValueError("EPS data does not match the expected pattern")
 
-        eps_data = [float(i.replace(',', '')) for i in match_eps.group(4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17)]
+        eps_data = [float(i.replace(',', '')) for i in match_eps]
         return eps_data
     
     # Method to get all the data

@@ -49,10 +49,10 @@ class QuarterResult:
 '''
 
         # Sales, Expenses, PBT, PAT (comma ,) Pattern
-        self.comma_pattern = r'''>\s*([\d,]+)\s*</td>'''
+        self.comma_pattern = r'''>\s*(-?[\d,]+)\s*</td>'''
 
         # EPS (dot . ) Pattern
-        self.dot_pattern = r'''>\s*([\d.]+)\s*</td>'''
+        self.dot_pattern = r'''>\s*(-?[\d.]+)\s*</td>'''
 
     def get_header(self):
         match_table_header = re.findall(self.quarter_header_pattern, self.table_header)
@@ -304,16 +304,17 @@ class AnnualResult:
         # Getting Table Header and Table Body
         self.table_header = str(self.soup.find(id = "profit-loss").thead)
         self.table_body = self.soup.find(id = "profit-loss").tbody.find_all('tr')
+        self.header_len = 0
 
         # Annual Result Header Pattern
         self.annual_header_pattern = r'''(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{4})
 '''
 
         # Sales, Expenses, PBT, PAT (comma ,) Pattern
-        self.comma_pattern = r'''>\s*([\d,]+)\s*</td>'''
+        self.comma_pattern = r'''>\s*(-?[\d,]+)\s*</td>'''
 
         # EPS (dot . ) Pattern
-        self.dot_pattern = r'''>\s*([\d.]+)\s*</td>'''
+        self.dot_pattern = r'''>\s*(-?[\d.]+)\s*</td>'''
 
     def get_header(self):
         """
@@ -345,6 +346,8 @@ class AnnualResult:
             raise ValueError("annual table_header does not match the expected pattern")
 
         annual_header_month = [m[0] for m in match_table_header]
+        self.header_len = len(annual_header_month)
+
         annual_header_month_number = []
         for month_str in annual_header_month:
             try:
@@ -355,7 +358,6 @@ class AnnualResult:
         annual_header_year = [m[1] for m in match_table_header]
 
         return [list(annual_header_month_number), list(annual_header_year)]
-
 
 
     def get_sales(self):
@@ -391,6 +393,10 @@ class AnnualResult:
             raise ValueError("Annual Sales data does not match the expected pattern")
 
         sales_data = [int(i.replace(',', '')) for i in match_sales]
+
+        if (self.header_len != len(sales_data)):
+            sales_data.pop()
+
         return sales_data
 
 
@@ -427,6 +433,10 @@ class AnnualResult:
             raise ValueError("Expenses data does not match the expected pattern")
 
         expenses_data = [int(i.replace(',', '')) for i in match_expenses]
+
+        if (self.header_len != len(expenses_data)):
+            expenses_data.pop()
+
         return expenses_data
 
 
@@ -459,13 +469,16 @@ class AnnualResult:
             raise ValueError("table_body is empty")
 
         profit_before_tax = str(self.table_body[7])
-        print(profit_before_tax)
 
         match_pbt = re.findall(self.comma_pattern, profit_before_tax)
         if not match_pbt:
             raise ValueError("PBT data does not match the expected pattern")
 
         pbt_data = [int(i.replace(',', '')) for i in match_pbt]
+
+        if (self.header_len != len(pbt_data)):
+            pbt_data.pop()
+
         return pbt_data
 
 
@@ -502,6 +515,10 @@ class AnnualResult:
             raise ValueError("PAT data does not match the expected pattern")
 
         pat_data = [int(i.replace(',', '').replace('%', '')) for i in match_pat]
+
+        if (self.header_len != len(pat_data)):
+            pat_data.pop()
+
         return pat_data
 
 
@@ -538,6 +555,10 @@ class AnnualResult:
             raise ValueError("EPS data does not match the expected pattern")
 
         eps_data = [float(i.replace(',', '')) for i in match_eps]
+
+        if (self.header_len != len(eps_data)):
+            eps_data.pop()
+
         return eps_data
     
     # Method to get all the data
@@ -655,10 +676,10 @@ def scrape_financials(ticker):
     
 # Driver Program
 # if __name__ == "__main__":
-#     quarter = QuarterResult('SUNPHARMA')
+#     # quarter = QuarterResult('SUNPHARMA')
 
-#     security_csv_writter(quarter.get_quarter_result(),'SUNPHARMA', 0)
+#     # security_csv_writter(quarter.get_quarter_result(),'SUNPHARMA', 0)
 
-# data = scrape_financials('SUNPHARMA')
+#     data = scrape_financials('SUNPHARMA')
 
-# print(data['annual'])
+#     print(data['annual'])
